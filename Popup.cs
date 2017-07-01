@@ -186,6 +186,8 @@ namespace dutynotifier {
             this.TopMost = true;
 
             this.InitializeSharpDx();
+
+            this.notifyIcon1.Visible = true;
         }
 
         public struct POINT {
@@ -276,6 +278,23 @@ namespace dutynotifier {
             };
 
             this.renderThread.Start();
+        }
+
+        #endregion
+
+        #region notifyicon 
+
+
+        private void notifyIcon1_MouseClick( object sender, MouseEventArgs e ) {
+            this.contextMenuStrip1.Show( Cursor.Position );
+        }
+
+        private void exitToolStripMenuItem_Click( object sender, EventArgs e ) {
+            this.Close();
+        }
+
+        private void Popup_FormClosing( object sender, FormClosingEventArgs e ) {
+            this.notifyIcon1.Visible = false;
         }
 
         #endregion
@@ -557,6 +576,7 @@ namespace dutynotifier {
                 }
             }
         }
+
         private System.Drawing.Point ReadPopupLocation( System.Diagnostics.Process p ) {
             IntPtr ptr = p.MainModule.BaseAddress;
             IntPtr pHandle = IntPtr.Zero;
