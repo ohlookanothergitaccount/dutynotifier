@@ -161,6 +161,12 @@ namespace dutynotifier {
 
         const int WS_MINIMIZE = 0x20000000;
 
+        private const int SW_SHOWNORMAL = 1;
+        private const int SW_SHOWMAXIMIZED = 3;
+        private const int SW_RESTORE = 9;
+
+        [DllImport( "user32.dll", SetLastError = true )]
+        private static extern bool ShowWindow( IntPtr hWnd, int nCmdShow );
 
         #endregion
 
@@ -282,7 +288,20 @@ namespace dutynotifier {
         private void Popup_MouseUp( object sender, MouseEventArgs e ) {
             trace = false;
             if( !moved ) {
+                if( e.X > 427 && e.X < 456 &&
+                    e.Y > 60 && e.Y < 87 ) {
+                    this.Close();
+                    return;
+                }
+                
+                int style = GetWindowLong( this.lastTargetWindow, -16 ); //get GWL_STYLE
+
+                if( ( style & WS_MINIMIZE ) == WS_MINIMIZE ) { //It's minimized, restore window
+                    ShowWindow( this.lastTargetWindow, SW_RESTORE );
+                }
+
                 SetForegroundWindow( this.lastTargetWindow );
+                
                 this.Visible = false;
             }
         }
@@ -302,7 +321,7 @@ namespace dutynotifier {
 
         #endregion
 
-
+        #region renderlogic
         private void Draw( int timeLeft, SharpDX.Direct2D1.Bitmap client, System.Drawing.Point popupLoc ) {
             const int bgtop = 53;
             const int bgleft = 18;
@@ -564,5 +583,7 @@ namespace dutynotifier {
                 }
             }
         }
+        #endregion
+
     }
 }
