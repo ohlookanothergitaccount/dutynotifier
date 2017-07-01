@@ -171,7 +171,6 @@ namespace dutynotifier {
         #endregion
 
         #region initialize
-
         public Popup() {
             InitializeComponent();
 
@@ -187,7 +186,9 @@ namespace dutynotifier {
 
             this.InitializeSharpDx();
 
+            this.notifyIcon1.Icon = dutynotifier.Properties.Resources.mico;
             this.notifyIcon1.Visible = true;
+            this.Visible = false;
         }
 
         public struct POINT {
@@ -284,19 +285,19 @@ namespace dutynotifier {
 
         #region notifyicon 
 
-
         private void notifyIcon1_MouseClick( object sender, MouseEventArgs e ) {
-            this.contextMenuStrip1.Show( Cursor.Position );
+            if( e.Button == MouseButtons.Right ) {
+                this.contextMenuStrip1.Show( Cursor.Position );
+            } else this.contextMenuStrip1.Visible = false;
         }
 
         private void exitToolStripMenuItem_Click( object sender, EventArgs e ) {
             this.Close();
         }
-
-        private void Popup_FormClosing( object sender, FormClosingEventArgs e ) {
+        
+        private void Popup_FormClosing( object sender, FormClosingEventArgs e ) {            
             this.notifyIcon1.Visible = false;
         }
-
         #endregion
 
         #region mouseinput
@@ -335,6 +336,7 @@ namespace dutynotifier {
             if( trace ) {
                 var p2s = new System.Drawing.Point( e.X + this.Location.X - refPoint.X, e.Y + this.Location.Y - refPoint.Y );
                 this.Location = p2s;
+                this.moved = true;
             }
         }
 
@@ -402,110 +404,117 @@ namespace dutynotifier {
             int i = 0;
             SharpDX.Direct2D1.Bitmap bmp = null;
 
-            PopupState popupstate = PopupState.NotVisible;
+            try {
 
-            while( true ) {
-                int seconds;
-                System.Drawing.Point wndLoc;
-                System.Drawing.Point newpopupLoc;
+                PopupState popupstate = PopupState.NotVisible;
 
-                //update
-                Process p = this.Update( out seconds, ref popupstate, out newpopupLoc );
+                while( true ) {
+                    int seconds;
+                    System.Drawing.Point wndLoc;
+                    System.Drawing.Point newpopupLoc;
 
-                if( p != null ) {
-                    lastTargetWindow = p.MainWindowHandle;
-                    int style;
+                    //update
+                    Process p = this.Update( out seconds, ref popupstate, out newpopupLoc );
 
-                    switch( popupstate ) {
-                        case PopupState.Visible:
-                            style = GetWindowLong( p.MainWindowHandle, -16 ); //get GWL_STYLE
+                    if( p != null ) {
+                        lastTargetWindow = p.MainWindowHandle;
+                        int style;
 
-                            if( ( style & WS_MINIMIZE ) == WS_MINIMIZE ) { //It's minimized, show placeholder in center of screen
+                        switch( popupstate ) {
+                            case PopupState.Visible:
+                                style = GetWindowLong( p.MainWindowHandle, -16 ); //get GWL_STYLE
 
-                                this.Draw( seconds, null, newpopupLoc );
+                                if( ( style & WS_MINIMIZE ) == WS_MINIMIZE ) { //It's minimized, show placeholder in center of screen
 
-                                this.Invoke( new Action( () => {
-                                    System.Drawing.Rectangle rcScreen = Screen.PrimaryScreen.WorkingArea;
-                                    Location = new System.Drawing.Point(
-                                        rcScreen.Left + rcScreen.Width / 2 - this.Width / 2,
-                                        rcScreen.Top + rcScreen.Height / 2 - this.Height / 2
-                                        );
-                                } ) );
+                                    this.Draw( seconds, null, newpopupLoc );
 
-                                if( !this.Visible ) {
                                     this.Invoke( new Action( () => {
-                                        this.Visible = true;
-                                    } ) );
-
-                                    try {
-                                        if( System.IO.File.Exists( "alert.wav" ) ) {
-                                            new System.Media.SoundPlayer( "alert.wav" ).Play();
-                                        }
-                                    } catch( Exception ex ) {
-                                        MessageBox.Show( ex.ToString() );
-                                    }
-                                }
-                            } else {
-                                if( bmp == null ) {
-                                    //get image from client
-                                    bmp = ConvertBitmap( this.Device, ( System.Drawing.Bitmap )PrintWindow( p.MainWindowHandle, out wndLoc ).Clone() );
-
-                                    popupLoc = new System.Drawing.Point( newpopupLoc.X + 10, newpopupLoc.Y + 36 );
-
-                                    //add offsets by window frame
-                                    POINT clientCoord = new POINT();
-                                    ClientToScreen( p.MainWindowHandle, ref clientCoord );
-
-                                    popupLoc.X += clientCoord.X - wndLoc.X;
-                                    popupLoc.Y += clientCoord.Y - wndLoc.Y;
-
-                                    //position popup at same position as ingame
-                                    this.Invoke( new Action( () => {
-                                        Location = new System.Drawing.Point( wndLoc.X + popupLoc.X - 17, wndLoc.Y + popupLoc.Y - 53 );
+                                        System.Drawing.Rectangle rcScreen = Screen.PrimaryScreen.WorkingArea;
+                                        Location = new System.Drawing.Point(
+                                            rcScreen.Left + rcScreen.Width / 2 - this.Width / 2,
+                                            rcScreen.Top + rcScreen.Height / 2 - this.Height / 2
+                                            );
                                     } ) );
 
                                     if( !this.Visible ) {
                                         this.Invoke( new Action( () => {
                                             this.Visible = true;
                                         } ) );
-                                    }
 
-                                    try {
-                                        if( System.IO.File.Exists( "alert.wav" ) ) {
-                                            new System.Media.SoundPlayer( "alert.wav" ).Play();
+                                        try {
+                                            if( System.IO.File.Exists( "alert.wav" ) ) {
+                                                new System.Media.SoundPlayer( "alert.wav" ).Play();
+                                            }
+                                        } catch( Exception ex ) {
+                                            MessageBox.Show( ex.ToString() );
                                         }
-                                    } catch( Exception ex ) {
-                                        MessageBox.Show( ex.ToString() );
                                     }
+                                } else {
+                                    if( bmp == null ) {
+                                        //get image from client
+                                        bmp = ConvertBitmap( this.Device, ( System.Drawing.Bitmap )PrintWindow( p.MainWindowHandle, out wndLoc ).Clone() );
+
+                                        popupLoc = new System.Drawing.Point( newpopupLoc.X + 10, newpopupLoc.Y + 36 );
+
+                                        //add offsets by window frame
+                                        POINT clientCoord = new POINT();
+                                        ClientToScreen( p.MainWindowHandle, ref clientCoord );
+
+                                        popupLoc.X += clientCoord.X - wndLoc.X;
+                                        popupLoc.Y += clientCoord.Y - wndLoc.Y;
+
+                                        //position popup at same position as ingame
+                                        this.Invoke( new Action( () => {
+                                            Location = new System.Drawing.Point( wndLoc.X + popupLoc.X - 17, wndLoc.Y + popupLoc.Y - 53 );
+                                        } ) );
+
+                                        if( !this.Visible ) {
+                                            this.Invoke( new Action( () => {
+                                                this.Visible = true;
+                                            } ) );
+                                        }
+
+                                        try {
+                                            if( System.IO.File.Exists( "alert.wav" ) ) {
+                                                new System.Media.SoundPlayer( "alert.wav" ).Play();
+                                            }
+                                        } catch( Exception ex ) {
+                                            MessageBox.Show( ex.ToString() );
+                                        }
+                                    }
+
+
+                                    this.Draw( seconds, bmp, popupLoc );
                                 }
+                                break;
+                            case PopupState.NotVisible:
+                            case PopupState.Locked:
+                                if( null != bmp ) {
+                                    bmp.Dispose();
+                                    bmp = null;
+                                }
+                                if( this.Visible ) {
+                                    this.Invoke( new Action( () => {
+                                        this.Visible = false;
+                                    } ) );
+                                }
+                                break;
 
-
-                                this.Draw( seconds, bmp, popupLoc );
-                            }
-                            break;
-                        case PopupState.NotVisible:
-                        case PopupState.Locked:
-                            if( null != bmp ) {
-                                bmp.Dispose();
-                                bmp = null;
-                            }
-                            if( this.Visible ) {
-                                this.Invoke( new Action( () => {
-                                    this.Visible = false;
-                                } ) );
-                            }
-                            break;
-
+                        }
+                    } else {
+                        if( this.Visible ) {
+                            this.Invoke( new Action( () => {
+                                this.Visible = false;
+                            } ) );
+                        }
                     }
-                } else {
-                    if( this.Visible ) {
-                        this.Invoke( new Action( () => {
-                            this.Visible = false;
-                        } ) );
-                    }
+
+                    System.Threading.Thread.Sleep( 1000 );
                 }
+            } catch( System.Threading.ThreadAbortException ) {
 
-                System.Threading.Thread.Sleep( 1000 );
+            } catch( Exception ex ) {
+                MessageBox.Show( ex.ToString() );
             }
         }
 
@@ -592,7 +601,7 @@ namespace dutynotifier {
                 }
             }
         }
-
+        
         private System.Drawing.Point ReadPopupLocation( System.Diagnostics.Process p ) {
             IntPtr ptr = p.MainModule.BaseAddress;
             IntPtr pHandle = IntPtr.Zero;
