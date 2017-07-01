@@ -142,30 +142,26 @@ namespace dutynotifier {
 
         [DllImport( "kernel32.dll", SetLastError = true )]
         public static extern IntPtr OpenProcess( ProcessAccessFlags processAccess, bool bInheritHandle, int processId );
-
         [DllImport( "kernel32.dll", SetLastError = true )]
         public static extern bool CloseHandle( System.IntPtr handle );
         [DllImport( "kernel32.dll", SetLastError = true )]
         public static extern bool ReadProcessMemory( System.IntPtr hProcess, System.IntPtr lpBaseAddress, [Out] byte[] lpBuffer, int dwSize, out int lpNumberOfBytesRead );
         [DllImport( "user32.dll", CharSet = CharSet.Auto, SetLastError = true )]
         public static extern IntPtr GetForegroundWindow();
-
         [DllImport( "user32.dll", CharSet = CharSet.Auto, SetLastError = true )]
         public static extern bool SetForegroundWindow( IntPtr hWnd );
-
         [DllImport( "user32.dll", CharSet = CharSet.Auto, SetLastError = true )]
         public static extern bool GetWindowRect( IntPtr hWnd, out RECT lpRect );
         [DllImport( "user32.dll", CharSet = CharSet.Auto, SetLastError = true )]
         public static extern bool ClientToScreen( IntPtr hWnd, ref POINT lpPoint );
-
         [DllImport( "user32.dll" )]
         public static extern bool PrintWindow( IntPtr hWnd, IntPtr hdcBlt, int nFlags );
+        [DllImport( "user32.dll", SetLastError = true )]
+        public static extern int GetWindowLong( IntPtr hWnd, int nIndex );
 
-        [DllImport( "user32.dll", CharSet = CharSet.Auto, SetLastError = true )]
-        public static extern int GetSystemMetrics( int id );
-        const int SM_CXSIZEFRAME = 32;
-        const int SM_CYSIZEFRAME = 33;
-        const int SM_CYCAPTION = 4;
+        const int WS_MINIMIZE = 0x20000000;
+
+
         #endregion
 
         #region initialize
@@ -355,10 +351,10 @@ namespace dutynotifier {
                     BitmapInterpolationMode.Linear,
                     new SharpDX.RectangleF( popupLoc.X, popupLoc.Y + ( 308 - bgtop ), w, h ) //src
                     );
-
-                //draw time
-                this.Device.DrawText( "0:" + timeLeft.ToString( "00" ), this.TimeTextFormat, new SharpDX.RectangleF( 794 - 444 + bgleft, 459 - 178 + bgtop, 100, 30 ), this.TimeBrush );
             }
+
+            //draw time
+            this.Device.DrawText( "0:" + timeLeft.ToString( "00" ), this.TimeTextFormat, new SharpDX.RectangleF( 794 - 444 + bgleft, 459 - 178 + bgtop, 100, 30 ), this.TimeBrush );
 
             this.Device.EndDraw();
         }
@@ -380,35 +376,58 @@ namespace dutynotifier {
 
                 if( p != null ) {
                     lastTargetWindow = p.MainWindowHandle;
+                    int style;
 
                     switch( popupstate ) {
                         case PopupState.Visible:
-                            if( bmp == null ) {
-                                //get image from client
-                                bmp = ConvertBitmap( this.Device, ( System.Drawing.Bitmap )PrintWindow( p.MainWindowHandle, out wndLoc ).Clone() );
+                            style = GetWindowLong( p.MainWindowHandle, -16 ); //get GWL_STYLE
 
-                                popupLoc = new System.Drawing.Point( newpopupLoc.X + 10, newpopupLoc.Y + 36 );
-                                
-                                //add offsets by window frame
-                                POINT clientCoord = new POINT();
-                                ClientToScreen( p.MainWindowHandle, ref clientCoord );
+                            if( ( style & WS_MINIMIZE ) == WS_MINIMIZE ) { //It's minimized, show placeholder in center of screen
 
-                                popupLoc.X += clientCoord.X - wndLoc.X;
-                                popupLoc.Y += clientCoord.Y - wndLoc.Y;
-                                
-                                //position popup at same position as ingame
+                                this.Draw( seconds, null, newpopupLoc );
+
                                 this.Invoke( new Action( () => {
-                                    Location = new System.Drawing.Point( wndLoc.X + popupLoc.X - 17, wndLoc.Y + popupLoc.Y - 53 );
+                                    System.Drawing.Rectangle rcScreen = Screen.PrimaryScreen.WorkingArea;
+                                    Location = new System.Drawing.Point(
+                                        rcScreen.Left + rcScreen.Width / 2 - this.Width / 2,
+                                        rcScreen.Top + rcScreen.Height / 2 - this.Height / 2
+                                        );
                                 } ) );
-                            }
 
-                            if( !this.Visible ) {
-                                this.Invoke( new Action( () => {
-                                    this.Visible = true;
-                                } ) );
-                            }
+                                if( !this.Visible ) {
+                                    this.Invoke( new Action( () => {
+                                        this.Visible = true;
+                                    } ) );
+                                }
+                            } else {
+                                if( bmp == null ) {
+                                    //get image from client
+                                    bmp = ConvertBitmap( this.Device, ( System.Drawing.Bitmap )PrintWindow( p.MainWindowHandle, out wndLoc ).Clone() );
 
-                            this.Draw( seconds, bmp, popupLoc );
+                                    popupLoc = new System.Drawing.Point( newpopupLoc.X + 10, newpopupLoc.Y + 36 );
+
+                                    //add offsets by window frame
+                                    POINT clientCoord = new POINT();
+                                    ClientToScreen( p.MainWindowHandle, ref clientCoord );
+
+                                    popupLoc.X += clientCoord.X - wndLoc.X;
+                                    popupLoc.Y += clientCoord.Y - wndLoc.Y;
+
+                                    //position popup at same position as ingame
+                                    this.Invoke( new Action( () => {
+                                        Location = new System.Drawing.Point( wndLoc.X + popupLoc.X - 17, wndLoc.Y + popupLoc.Y - 53 );
+                                    } ) );
+
+                                    if( !this.Visible ) {
+                                        this.Invoke( new Action( () => {
+                                            this.Visible = true;
+                                        } ) );
+                                    }
+                                }
+
+
+                                this.Draw( seconds, bmp, popupLoc );
+                            }
                             break;
                         case PopupState.NotVisible:
                         case PopupState.Locked:
@@ -462,7 +481,7 @@ namespace dutynotifier {
             } else {
                 if( seconds > 0 && lastTime == 0 && popupstate == PopupState.NotVisible ) {
                     popupLoc = this.ReadPopupLocation( p );
-                                        
+
                     popupstate = PopupState.Visible;
                 } else if( seconds == 0 && popupstate == PopupState.Locked ) {
                     popupstate = PopupState.NotVisible;
