@@ -312,7 +312,7 @@ namespace dutynotifier {
                     this.Close();
                     return;
                 }
-                
+
                 int style = GetWindowLong( this.lastTargetWindow, -16 ); //get GWL_STYLE
 
                 if( ( style & WS_MINIMIZE ) == WS_MINIMIZE ) { //It's minimized, restore window
@@ -320,7 +320,7 @@ namespace dutynotifier {
                 }
 
                 SetForegroundWindow( this.lastTargetWindow );
-                
+
                 this.Visible = false;
             }
         }
@@ -436,6 +436,14 @@ namespace dutynotifier {
                                     this.Invoke( new Action( () => {
                                         this.Visible = true;
                                     } ) );
+
+                                    try {
+                                        if( System.IO.File.Exists( "alert.wav" ) ) {
+                                            new System.Media.SoundPlayer( "alert.wav" ).Play();
+                                        }
+                                    } catch( Exception ex ) {
+                                        MessageBox.Show( ex.ToString() );
+                                    }
                                 }
                             } else {
                                 if( bmp == null ) {
@@ -460,6 +468,14 @@ namespace dutynotifier {
                                         this.Invoke( new Action( () => {
                                             this.Visible = true;
                                         } ) );
+                                    }
+
+                                    try {
+                                        if( System.IO.File.Exists( "alert.wav" ) ) {
+                                            new System.Media.SoundPlayer( "alert.wav" ).Play();
+                                        }
+                                    } catch( Exception ex ) {
+                                        MessageBox.Show( ex.ToString() );
                                     }
                                 }
 
