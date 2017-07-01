@@ -1,7 +1,9 @@
 # dutynotifier
 
 does not support directx9
+
 does not support 32 bit client
+
 does not support ui scasling > 100%
 
 if you need 32bit support update timeOffsets and locOffsets in popup.cs
