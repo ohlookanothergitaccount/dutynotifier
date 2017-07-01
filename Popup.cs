@@ -153,11 +153,19 @@ namespace dutynotifier {
         [DllImport( "user32.dll", CharSet = CharSet.Auto, SetLastError = true )]
         public static extern bool SetForegroundWindow( IntPtr hWnd );
 
-        [DllImport( "user32.dll" )]
+        [DllImport( "user32.dll", CharSet = CharSet.Auto, SetLastError = true )]
         public static extern bool GetWindowRect( IntPtr hWnd, out RECT lpRect );
+        [DllImport( "user32.dll", CharSet = CharSet.Auto, SetLastError = true )]
+        public static extern bool ClientToScreen( IntPtr hWnd, ref POINT lpPoint );
+
         [DllImport( "user32.dll" )]
         public static extern bool PrintWindow( IntPtr hWnd, IntPtr hdcBlt, int nFlags );
 
+        [DllImport( "user32.dll", CharSet = CharSet.Auto, SetLastError = true )]
+        public static extern int GetSystemMetrics( int id );
+        const int SM_CXSIZEFRAME = 32;
+        const int SM_CYSIZEFRAME = 33;
+        const int SM_CYCAPTION = 4;
         #endregion
 
         #region initialize
@@ -176,6 +184,10 @@ namespace dutynotifier {
             this.TopMost = true;
 
             this.InitializeSharpDx();
+        }
+
+        public struct POINT {
+            public int X, Y;
         }
 
         protected override void OnPaint( PaintEventArgs e ) {
@@ -291,7 +303,7 @@ namespace dutynotifier {
                 this.Location = p2s;
             }
         }
-        
+
         #endregion
 
 
@@ -372,13 +384,18 @@ namespace dutynotifier {
                     switch( popupstate ) {
                         case PopupState.Visible:
                             if( bmp == null ) {
-                                popupLoc = new System.Drawing.Point( newpopupLoc.X, newpopupLoc.Y );
-                                popupLoc.X += 10;
-                                popupLoc.Y += 36;
-
                                 //get image from client
                                 bmp = ConvertBitmap( this.Device, ( System.Drawing.Bitmap )PrintWindow( p.MainWindowHandle, out wndLoc ).Clone() );
 
+                                popupLoc = new System.Drawing.Point( newpopupLoc.X + 10, newpopupLoc.Y + 36 );
+                                
+                                //add offsets by window frame
+                                POINT clientCoord = new POINT();
+                                ClientToScreen( p.MainWindowHandle, ref clientCoord );
+
+                                popupLoc.X += clientCoord.X - wndLoc.X;
+                                popupLoc.Y += clientCoord.Y - wndLoc.Y;
+                                
                                 //position popup at same position as ingame
                                 this.Invoke( new Action( () => {
                                     Location = new System.Drawing.Point( wndLoc.X + popupLoc.X - 17, wndLoc.Y + popupLoc.Y - 53 );
@@ -445,6 +462,7 @@ namespace dutynotifier {
             } else {
                 if( seconds > 0 && lastTime == 0 && popupstate == PopupState.NotVisible ) {
                     popupLoc = this.ReadPopupLocation( p );
+                                        
                     popupstate = PopupState.Visible;
                 } else if( seconds == 0 && popupstate == PopupState.Locked ) {
                     popupstate = PopupState.NotVisible;
