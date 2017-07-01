@@ -446,7 +446,7 @@ namespace dutynotifier {
                 if( seconds > 0 && lastTime == 0 && popupstate == PopupState.NotVisible ) {
                     popupLoc = this.ReadPopupLocation( p );
                     popupstate = PopupState.Visible;
-                } else if( seconds == 0 ) {
+                } else if( seconds == 0 && popupstate == PopupState.Locked ) {
                     popupstate = PopupState.NotVisible;
                 }
 
